@@ -19,6 +19,11 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(cors({
+    origin: 'https://data-connector-frontend.onrender.com',
+    credentials: true
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

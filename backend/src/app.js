@@ -21,6 +21,7 @@ app.use((req, res, next) => {
 
 app.use(cors({
     origin: 'https://data-connector-frontend.onrender.com',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
 

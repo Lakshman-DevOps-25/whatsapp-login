@@ -8,7 +8,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'https://whatsapp-login-rdw9.onrender.com',
         changeOrigin: true,
         secure: false,
       },

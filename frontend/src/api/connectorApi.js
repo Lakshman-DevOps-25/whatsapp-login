@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API = axios.create({
   // Uses VITE_API_URL from .env in dev, and from render.yaml in production
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://whatsapp-login-rdw9.onrender.com/api',
 });
 
 // ── Connectors CRUD ───────────────────────────────────────────────────

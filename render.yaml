@@ -90,10 +90,12 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://whatsapp-login-rdw9.onrender.com/api
+        sync: false
 
       - key: VITE_META_APP_ID
         value: 922666820611700
         sync: false          # Enter in Render dashboard
 
       - key: VITE_META_CONFIG_ID
+        value: 1474352480478314
         sync: false

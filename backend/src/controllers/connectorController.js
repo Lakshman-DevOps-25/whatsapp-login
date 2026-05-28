@@ -53,7 +53,7 @@ exports.deleteConnector = async (req, res) => {
 exports.getWhatsAppAuthUrl = (req, res) => {
   try {
     const META_APP_ID     = process.env.META_APP_ID;
-    const META_REDIRECT   = process.env.META_REDIRECT_URI || 'http://localhost:5000/api/connectors/whatsapp/callback';
+    const META_REDIRECT   = process.env.META_REDIRECT_URI || 'https://whatsapp-login-rdw9.onrender.com/api/connectors/whatsapp/callback';
     const META_CONFIG_ID  = process.env.META_CONFIG_ID;
 
     if (!META_APP_ID) {

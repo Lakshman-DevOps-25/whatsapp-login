@@ -1,5 +1,5 @@
 const express = require('express');
-const cors    = require('cors');
+// const cors    = require('cors');
 const connectDB       = require('./config/db');
 const connectorRoutes = require('./routes/connectorRoutes');
 
@@ -20,11 +20,11 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({
-    origin: 'https://data-connector-frontend.onrender.com',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-}));
+// app.use(cors({
+//     origin: 'https://data-connector-frontend.onrender.com',
+//     methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//     credentials: true
+// }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

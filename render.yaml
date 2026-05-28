@@ -31,20 +31,24 @@ services:
 
       # ── MongoDB Atlas ───────────────────────────────────────────────────
       - key: MONGO_URI
+        value: mongodb+srv://lakshmana-gundala:Mongodb123@cluster0.mpkvh0j.mongodb.net/whatsapp_capture
         sync: false          # Render prompts you to enter this — never committed
 
       # ── Meta / WhatsApp ─────────────────────────────────────────────────
       - key: META_APP_ID
+        value: 922666820611700
         sync: false          # Enter in Render dashboard — never committed
 
       - key: META_APP_SECRET
+        value: 903d8df4bd61131f967d2767781648a3
         sync: false          # Enter in Render dashboard — never committed
 
       - key: META_CONFIG_ID
+        value: 1474352480478314
         sync: false
 
       - key: META_REDIRECT_URI
-        value: https://data-connector-backend.onrender.com/api/connectors/whatsapp/callback
+        value: https://whatsapp-login-rdw9.onrender.com/api/connectors/whatsapp/callback
 
       # ── Security ────────────────────────────────────────────────────────
       - key: ENCRYPTION_KEY
@@ -85,9 +89,10 @@ services:
 
     envVars:
       - key: VITE_API_URL
-        value: https://data-connector-backend.onrender.com/api
+        value: https://whatsapp-login-rdw9.onrender.com/api
 
       - key: VITE_META_APP_ID
+        value: 922666820611700
         sync: false          # Enter in Render dashboard
 
       - key: VITE_META_CONFIG_ID

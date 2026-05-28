@@ -1,0 +1,94 @@
+# render.yaml — Render Blueprint
+# Defines all services and environment variables in one file.
+# Commit this file to your repo. Render reads it automatically.
+#
+# Deploy: render.com → New → Blueprint → connect your repo → done.
+# Sensitive values marked with `sync: false` — Render will prompt you
+# to enter them once in the dashboard (not stored in this file).
+
+services:
+
+  # ── Backend — Node.js Web Service ────────────────────────────────────────
+  - type: web
+    name: data-connector-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 5000
+
+      - key: FRONTEND_URL
+        value: https://data-connector-frontend.onrender.com
+
+      # ── MongoDB Atlas ───────────────────────────────────────────────────
+      - key: MONGO_URI
+        sync: false          # Render prompts you to enter this — never committed
+
+      # ── Meta / WhatsApp ─────────────────────────────────────────────────
+      - key: META_APP_ID
+        sync: false          # Enter in Render dashboard — never committed
+
+      - key: META_APP_SECRET
+        sync: false          # Enter in Render dashboard — never committed
+
+      - key: META_CONFIG_ID
+        sync: false
+
+      - key: META_REDIRECT_URI
+        value: https://data-connector-backend.onrender.com/api/connectors/whatsapp/callback
+
+      # ── Security ────────────────────────────────────────────────────────
+      - key: ENCRYPTION_KEY
+        generateValue: true  # Render auto-generates a secure random value
+
+      - key: JWT_SECRET
+        generateValue: true  # Render auto-generates a secure random value
+
+      # ── MinIO (optional) ────────────────────────────────────────────────
+      - key: MINIO_ENDPOINT
+        value: localhost
+
+      - key: MINIO_PORT
+        value: 9000
+
+      - key: MINIO_ACCESS_KEY
+        value: minioadmin
+
+      - key: MINIO_SECRET_KEY
+        sync: false
+
+
+  # ── Frontend — React / Vite Static Site ──────────────────────────────────
+  - type: web
+    name: data-connector-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    autoDeploy: true
+
+    routes:
+      # Required for React Router — all paths serve index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      - key: VITE_API_URL
+        value: https://data-connector-backend.onrender.com/api
+
+      - key: VITE_META_APP_ID
+        sync: false          # Enter in Render dashboard
+
+      - key: VITE_META_CONFIG_ID
+        sync: false

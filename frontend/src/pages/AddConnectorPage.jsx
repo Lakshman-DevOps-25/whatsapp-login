@@ -250,12 +250,19 @@ const AddConnectorPage = () => {
                 display: 'flex', alignItems: 'center', gap: 1.5,
               }}
             >
-             {connecting ? (
-                 <> Connecting to WhatsApp…</>
-               ) : !sdkReady ? (<> Initializing SDK…</>) : (<>Continue with Facebook</>)
-             }
-          )}
-        );
-    };
+              {connecting ? (
+                <><CircularProgress size={22} color="inherit" /> Connecting to WhatsApp…</>
+              ) : !sdkReady ? (
+                <><CircularProgress size={18} color="inherit" /> Initializing SDK…</>
+              ) : (
+                <>Continue with Facebook</>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </PageLayout>
+  );
+};
 
 export default AddConnectorPage;

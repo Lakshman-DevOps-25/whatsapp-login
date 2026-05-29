@@ -5,6 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Data Connector Platform</title>
+
+    <!--
+      Define fbAsyncInit BEFORE the SDK script so Meta calls it
+      immediately when sdk.js finishes loading.
+      FB.init() is called from main.jsx (where import.meta.env works).
+    -->
+    <script>
+      window.__fbReady = false;
+      window.__fbReadyCallback = null;
+
+      window.fbAsyncInit = function () {
+        // FB object now exists — main.jsx will call FB.init()
+        // Signal that the SDK script itself has loaded
+        window.__fbSdkLoaded = true;
+        if (typeof window.__fbSdkLoadedCallback === 'function') {
+          window.__fbSdkLoadedCallback();
+        }
+      };
+    </script>
+    <script async defer crossorigin="anonymous"
+      src="https://connect.facebook.net/en_US/sdk.js">
+    </script>
   </head>
   <body>
     <div id="root"></div>

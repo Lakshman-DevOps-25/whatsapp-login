@@ -14,6 +14,7 @@ const CONNECTOR_TYPES = [
   { value: 'teams',    label: 'Microsoft Teams', emoji: '👥', color: '#6264A7', desc: 'Connect via Microsoft login' },
 ];
 
+// Read from .env — set ONCE by the developer, never by the customer
 const META_APP_ID = import.meta.env.VITE_META_APP_ID  || '';
 const META_CFG_ID = import.meta.env.VITE_META_CONFIG_ID || '';
 
@@ -24,42 +25,44 @@ const AddConnectorPage = () => {
   const [connecting, setConnecting] = useState(false);
   const [sdkReady,   setSdkReady]  = useState(false);
   const [alert,      setAlert]     = useState(null);
-  const wabaRef   = useRef({});
-  const navigate  = useNavigate();
+  const wabaRef  = useRef({});
+  const navigate = useNavigate();
 
+  // ── Load Facebook JS SDK on mount ─────────────────────────────
   useEffect(() => {
-    // ── Step 1: inject the SDK script ──────────────────────────────────────
-    if (!document.getElementById('facebook-jssdk')) {
-      const s  = document.createElement('script');
-      s.id     = 'facebook-jssdk';
-      s.src    = 'https://connect.facebook.net/en_US/sdk.js';
-      s.async  = true;
-      s.defer  = true;
-      document.body.appendChild(s);
+    // 1. Define global init callback safely before script injection runs
+    window.fbAsyncInit = () => {
+      if (!window.FB) return;
+      window.FB.init({
+        appId:   META_APP_ID,
+        cookie:  true,
+        xfbml:   true,
+        version: 'v22.0',
+      });
+      setSdkReady(true);
+    };
+
+    // 2. If SDK loaded and already initialized on a previous mount/refresh
+    if (window.FB && window.FB.init) {
+      // Re-run init to make sure it tracks our current app ID state config
+      window.fbAsyncInit();
     }
 
-    // ── Step 2: poll every 200ms until window.FB exists, then call init ───
-    // This handles both "SDK already cached" and "SDK still loading" cases
-    const poll = setInterval(() => {
-      if (!window.FB) return; // still loading — wait
-
-      clearInterval(poll);
-
-      // Call FB.init() only if not already initialised
-      if (!window._fbInitDone) {
-        window.FB.init({
-          appId:   META_APP_ID,
-          cookie:  true,
-          xfbml:   true,
-          version: 'v22.0',
-        });
-        window._fbInitDone = true;
-      }
-
+    // 3. Only inject the script tag if it doesn't exist
+    if (!document.getElementById('facebook-jssdk')) {
+      const s   = document.createElement('script');
+      s.id      = 'facebook-jssdk';
+      s.src     = 'https://connect.facebook.net/en_US/sdk.js';
+      s.async   = true;
+      s.defer   = true;
+      s.onerror = () => setAlert({ type: 'error', msg: 'Could not load Facebook SDK. Check your internet connection.' });
+      document.body.appendChild(s);
+    } else if (window.FB) {
+      // Script exists and window.FB is active, force readiness state update
       setSdkReady(true);
-    }, 200);
+    }
 
-    // ── Step 3: capture waba_id + phone_number_id from popup postMessage ──
+    // 4. Handle incoming window messaging post-popup
     const onMsg = (event) => {
       if (event.origin !== 'https://www.facebook.com') return;
       try {
@@ -73,11 +76,7 @@ const AddConnectorPage = () => {
       } catch {}
     };
     window.addEventListener('message', onMsg);
-
-    return () => {
-      clearInterval(poll);
-      window.removeEventListener('message', onMsg);
-    };
+    return () => window.removeEventListener('message', onMsg);
   }, []);
 
   const validate = () => {
@@ -103,31 +102,36 @@ const AddConnectorPage = () => {
     setStep(1);
   };
 
+  // ── The only function the customer triggers ───────────────────────────────
   const handleFacebookLogin = () => {
     setAlert(null);
 
+    // Guard: SDK still loading or missing configuration entirely
     if (!sdkReady || !window.FB) {
-      setAlert({ type: 'info', msg: 'Facebook SDK is still loading. Please wait a moment and try again.' });
+      setAlert({ type: 'info', msg: 'Facebook SDK is initializing, please wait a moment and try again.' });
       return;
     }
 
     setConnecting(true);
 
-    const opts = {
+    // Build login options — config_id is optional (popup works without it if blank)
+    const loginOptions = {
       response_type:                  'code',
       override_default_response_type: true,
       extras: { feature: 'whatsapp_embedded_signup' },
     };
-    if (META_CFG_ID) opts.config_id = META_CFG_ID;
+    // Only pass config_id if it is set — avoids FB error on blank string
+    if (META_CFG_ID) loginOptions.config_id = META_CFG_ID;
 
     window.FB.login((response) => {
       if (response.authResponse?.code) {
         exchangeToken(response.authResponse.code);
       } else {
-        setAlert({ type: 'warning', msg: 'Login popup was closed. Please try again.' });
+        const reason = response.authResponse ? 'Authorization not completed' : 'Login popup was closed';
+        setAlert({ type: 'warning', msg: reason + '. Please try again.' });
         setConnecting(false);
       }
-    }, opts);
+    }, loginOptions);
   };
 
   const exchangeToken = async (code) => {
@@ -138,10 +142,13 @@ const AddConnectorPage = () => {
         phoneNumberId: wabaRef.current.phoneNumberId || null,
         connectorName: form.connectorName,
       });
-      setAlert({ type: 'success', msg: 'WhatsApp connected! Redirecting…' });
+      setAlert({ type: 'success', msg: 'WhatsApp connected successfully! Redirecting…' });
       setTimeout(() => navigate('/connectors'), 1200);
     } catch (err) {
-      setAlert({ type: 'error', msg: err.response?.data?.error || 'Token exchange failed. Please try again.' });
+      setAlert({
+        type: 'error',
+        msg:  err.response?.data?.error || 'Token exchange failed. Please try again.',
+      });
     } finally {
       setConnecting(false);
     }
@@ -167,48 +174,52 @@ const AddConnectorPage = () => {
         </Alert>
       )}
 
-      {/* Step 0 */}
       {step === 0 && (
-        <Card elevation={0} sx={{ maxWidth: 520, border: '1px solid #e0e0e0', borderRadius: 3 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>Select Platform</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-              {CONNECTOR_TYPES.map(type => (
-                <Box key={type.value}
-                  onClick={() => { setForm(f => ({ ...f, connectorType: type.value })); setErrors(e => ({ ...e, connectorType: '' })); }}
-                  sx={{
-                    display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
-                    borderRadius: 2, cursor: 'pointer',
-                    border: `2px solid ${form.connectorType === type.value ? type.color : '#e0e0e0'}`,
-                    backgroundColor: form.connectorType === type.value ? type.color + '10' : '#fff',
-                    transition: 'all .15s', '&:hover': { borderColor: type.color },
-                  }}>
-                  <Typography fontSize={26}>{type.emoji}</Typography>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" fontWeight={600}>{type.label}</Typography>
-                    <Typography variant="caption" color="text.secondary">{type.desc}</Typography>
+        <Box sx={{ maxWidth: 520 }}>
+          <TextField
+            fullWidth
+            label="Connector Name"
+            variant="outlined"
+            value={form.connectorName}
+            onChange={(e) => setForm({ ...form, connectorName: e.target.value })}
+            error={!!errors.connectorName}
+            helperText={errors.connectorName}
+            sx={{ mb: 3 }}
+          />
+          
+          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>Select Platform</Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 4 }}>
+            {CONNECTOR_TYPES.map((type) => (
+              <Card 
+                key={type.value}
+                onClick={() => setForm({ ...form, connectorType: type.value })}
+                sx={{ 
+                  cursor: 'pointer',
+                  border: form.connectorType === type.value ? `2px solid ${type.color}` : '1px solid #e0e0e0',
+                  boxShadow: 'none',
+                  '&:hover': { backgroundColor: '#fcfcfc' }
+                }}
+              >
+                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: '16px !important' }}>
+                  <Box sx={{ fontSize: 24 }}>{type.emoji}</Box>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={600}>{type.label}</Typography>
+                    <Typography variant="body2" color="text.secondary">{type.desc}</Typography>
                   </Box>
-                  {form.connectorType === type.value && <CheckCircleOutlined sx={{ color: type.color }} />}
-                </Box>
-              ))}
-            </Box>
+                </CardContent>
+              </Card>
+            ))}
             {errors.connectorType && (
-              <Typography variant="caption" color="error" display="block" sx={{ mb: 1 }}>{errors.connectorType}</Typography>
+              <Typography variant="caption" color="error">{errors.connectorType}</Typography>
             )}
-            <TextField fullWidth label="Connector Name" margin="normal"
-              value={form.connectorName}
-              onChange={e => { setForm(f => ({ ...f, connectorName: e.target.value })); setErrors(ex => ({ ...ex, connectorName: '' })); }}
-              error={!!errors.connectorName}
-              helperText={errors.connectorName || `e.g. My ${selectedType?.label || 'Business'} Account`}
-            />
-            <Button fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.3 }} onClick={handleContinue}>
-              {form.connectorType === 'whatsapp' ? 'Continue →' : 'Add Connector'}
-            </Button>
-          </CardContent>
-        </Card>
+          </Box>
+
+          <Button variant="contained" onClick={handleContinue} size="large" fullWidth sx={{ textTransform: 'none', py: 1.2, borderRadius: 2 }}>
+            Continue
+          </Button>
+        </Box>
       )}
 
-      {/* Step 1 */}
       {step === 1 && (
         <Card elevation={0} sx={{ maxWidth: 520, border: '1px solid #e0e0e0', borderRadius: 3 }}>
           <CardContent sx={{ p: 4, textAlign: 'center' }}>
@@ -216,48 +227,35 @@ const AddConnectorPage = () => {
               mx: 'auto', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>
               💬
             </Box>
+
             <Typography variant="h5" fontWeight={700} gutterBottom>Connect WhatsApp</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Account: <strong>{form.connectorName}</strong>
+            </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 380, mx: 'auto' }}>
               Click the button below. A Facebook popup will open where you sign in
               and authorize your WhatsApp Business Account.
             </Typography>
 
-            <Button variant="contained" size="large" fullWidth
+            <Button
+              variant="contained" size="large" fullWidth
               onClick={handleFacebookLogin}
               disabled={connecting || !sdkReady}
               sx={{
                 py: 1.6, fontSize: '1rem', fontWeight: 700,
-                backgroundColor: '#1877F2', '&:hover': { backgroundColor: '#1468d9' },
+                backgroundColor: '#1877F2',
+                '&:hover': { backgroundColor: '#1468d9' },
                 '&:disabled': { backgroundColor: '#b0c4de', color: '#fff' },
                 borderRadius: 2, textTransform: 'none',
                 display: 'flex', alignItems: 'center', gap: 1.5,
-              }}>
-              {connecting ? (
-                <><CircularProgress size={22} color="inherit" /> Connecting…</>
-              ) : !sdkReady ? (
-                <><CircularProgress size={18} color="inherit" /> Loading…</>
-              ) : (
-                <>
-                  <Box component="span" sx={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    backgroundColor: '#fff', color: '#1877F2',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 900, fontSize: '1rem', flexShrink: 0,
-                  }}>f</Box>
-                  Continue with Facebook
-                </>
-              )}
-            </Button>
-
-            <Button size="small" sx={{ mt: 2, color: 'text.secondary' }}
-              onClick={() => { setStep(0); setAlert(null); }} disabled={connecting}>
-              ← Back
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </PageLayout>
-  );
-};
+              }}
+            >
+             {connecting ? (
+                 <> Connecting to WhatsApp…</>
+               ) : !sdkReady ? (<> Initializing SDK…</>) : (<>Continue with Facebook</>)
+             }
+          )}
+        );
+    };
 
 export default AddConnectorPage;
